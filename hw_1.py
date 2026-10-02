@@ -25,8 +25,8 @@ class Phone(Field):
 class Birthday(Field):
     def __init__(self, value):
         try:
-            parsed_value = datetime.strptime(value, '%d.%m.%Y')
-            super().__init__(parsed_value)
+            datetime.strptime(value, '%d.%m.%Y')
+            super().__init__(value)
         except ValueError:
             raise ValueError('Invalid date format. Use DD.MM.YYYY')
 
@@ -59,7 +59,11 @@ class Record:
         self.birthday = Birthday(birthday)
 
     def __str__(self):
-        return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        no_bday = f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        if self.birthday == None:
+            return no_bday
+        else:
+            return no_bday + f", birthday: {self.birthday}"
 
 
 class AddressBook(UserDict):
@@ -91,7 +95,7 @@ class AddressBook(UserDict):
         today = date.today()
         for contact in self.data.values():
             try:
-                birthday_this_year = contact.birthday.value.replace(year = today.year).date()
+                birthday_this_year = datetime.strptime(contact.birthday.value, '%d.%m.%Y').replace(year=today.year).date()
                 if birthday_this_year < today:
                     birthday_this_year = birthday_this_year.replace(year = today.year + 1)
                 if 0 <= (birthday_this_year - today).days <= days:
@@ -121,9 +125,9 @@ def input_error(func):
         except KeyError:
             return "Contact not found."
         except AttributeError as e:
-            if str(e):
-                return str(e)
-            return "Contact not found."
+            if "NoneType" in str(e):
+                return "Contact not found."
+            return str(e)
     return inner
 
 
@@ -159,17 +163,13 @@ def change_contact(args, book: AddressBook):
 @input_error
 def show_phone(args, book: AddressBook):
     record = book.find(args[0])
-    if record is None:
-        raise AttributeError
-    return str(record)
+    return f"{record.name.value}: {'; '.join(p.value for p in record.phones)}"
 
 
 @input_error
 def add_birthday(args, book: AddressBook):
     name, birthday, *_ = args
     record = book.find(name)
-    if record is None:
-        raise AttributeError
     if birthday:
         record.add_birthday(birthday)
         return f"{name}\'s birthday info updated."
@@ -178,8 +178,6 @@ def add_birthday(args, book: AddressBook):
 @input_error
 def show_birthday(args, book: AddressBook):
     record = book.find(args[0])
-    if record is None:
-        raise AttributeError
     if record.birthday is None:
         raise AttributeError(f'{args[0]} does not have a birthday.')
     return book.date_to_string(record.birthday.value)
